@@ -58,14 +58,16 @@ def get_perplexity_response(company_name):
         # citations 정보를 더 자세히 처리
         detailed_citations = []
         for citation in citations:
-            url = citation.get("url", "")
-            title = citation.get("title", "제목 없음")
-            detailed_citations.append({"url": url, "title": title})
+            if isinstance(citation, dict):
+                url = citation.get("url", "")
+                title = citation.get("title", "제목 없음")
+                detailed_citations.append({"url": url, "title": title})
+            else:
+                detailed_citations.append({"url": "", "title": "정보 없음"})
 
         return content.strip(), detailed_citations
     else:
         return f"API 응답에 'choices' 키가 없습니다. 응답 내용: {response_json}", []
-
 
 def main():
     st.title("투자정보 조회")
@@ -85,13 +87,17 @@ def main():
                             for i, citation in enumerate(citations, 1):
                                 url = citation["url"]
                                 title = citation["title"]
-                                st.markdown(f"{i}. [{title}]({url})")
+                                if url:
+                                    st.markdown(f"{i}. [{title}]({url})")
+                                else:
+                                    st.markdown(f"{i}. {title}")
                     else:
                         st.write(result)
             else:
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
             st.warning("기업명을 입력해주세요.")
+
 
 if __name__ == "__main__":
     main()
