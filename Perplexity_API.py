@@ -58,10 +58,17 @@ def get_perplexity_response(company_name):
         # citations 정보를 더 자세히 처리
         detailed_citations = []
         for citation in citations:
-            if isinstance(citation, dict):
-                url = citation.get("url", "")
-                title = citation.get("title", "제목 없음")
-                detailed_citations.append({"url": url, "title": title})
+            if isinstance(citations, list):
+                for citation in citations:
+                    if isinstance(citation, dict):
+                        url = citation.get("url", "")
+                        title = citation.get("title", "제목 없음")
+                    else:
+                        url = ""
+                        title = str(citation) if citation else "정보 없음"
+                    detailed_citations.append({"url": url, "title": title})
+            elif citations:
+                detailed_citations.append({"url": "", "title": str(citations)})
             else:
                 detailed_citations.append({"url": "", "title": "정보 없음"})
 
