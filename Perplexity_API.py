@@ -78,12 +78,16 @@ def main():
                                 st.write(f"{i}. {citation}")
                     else:
                         st.write(result)
-                st.info(f"현재 사용한 크레딧: ${credit_used:.2f} / ${CREDIT_LIMIT:.2f}")
+                #st.info(f"현재 사용한 크레딧: ${credit_used:.2f} / ${CREDIT_LIMIT:.2f}")
             else:
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
             st.warning("기업명을 입력해주세요.")
 
+    if st.session_state.result:
+        if st.button("결과 인쇄"):
+            st.write("PRINT")
+            st.write(st.session_state.result)
 
 if __name__ == "__main__":
     main()
