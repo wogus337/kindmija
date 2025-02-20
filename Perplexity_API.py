@@ -21,7 +21,7 @@ def get_perplexity_response(company_name):
         return "크레딧 한도 초과로 API 호출이 불가능합니다."
 
     url = "https://api.perplexity.ai/chat/completions"
-    query = f"{company_name}의 최근 실적을 정리해 주고 특이사항이 있다면 알려주세요. 새롭게 발행하는 {company_name} 회사채에 대한 투자를 고려하고 있는데 신용등급 전망과 재무 상황, 업황, 실적 전망을 요약해 주세요. 각종 자료에 대해서는 출처도 함께 명시해 주었으면 좋겠어요"
+    query = f"{company_name}의 최근 실적을 증가율과 함께 정리해 주고 특이사항이 있다면 알려주세요. 새롭게 발행하는 {company_name} 회사채에 대한 투자를 고려하고 있는데 신용등급 전망과 재무 상황, 업황, 실적 전망을 자세히 설명해 주세요. 각종 자료에 대해서는 출처도 함께 명시해 주었으면 좋겠어요"
     payload = {
         "model": "sonar-pro",
         "messages": [
