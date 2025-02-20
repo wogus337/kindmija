@@ -2,6 +2,7 @@
 import streamlit as st
 import requests
 import json
+import re
 
 # Perplexity AI API 키 (실제 키로 교체 필요)
 PERPLEXITY_API_KEY = "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"
@@ -48,12 +49,12 @@ def get_perplexity_response(company_name):
 
     # 응답 JSON 확인
     response_json = response.json()
-    st.write("API 응답:", response_json)  # 디버깅용 출력
 
-    # choices 키가 있는지 확인 후 반환
     if "choices" in response_json and response_json["choices"]:
-        credit_used += CREDIT_PER_CALL  # 크레딧 사용량 증가
-        return response_json["choices"][0]["message"]["content"]
+        content = response_json["choices"][0]["message"]["content"]
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        citations = response_json.get("citations", [])
+        return content.strip(), citations
     else:
         return f"API 응답에 'choices' 키가 없습니다. 응답 내용: {response_json}"
 
@@ -67,14 +68,18 @@ def main():
         if company_name:
             if credit_used < CREDIT_LIMIT:
                 with st.spinner("정보를 조회 중입니다..."):
-                    response = get_perplexity_response(company_name)
-                    st.markdown(response)
+                    content, citations = get_perplexity_response(company_name)
+                    st.markdown(content)
+
+                    st.subheader("출처")
+                    for i, citation in enumerate(citations, 1):
+                        st.write(f"{i}. {citation}")
+
                 st.info(f"현재 사용한 크레딧: ${credit_used:.2f} / ${CREDIT_LIMIT:.2f}")
             else:
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
             st.warning("기업명을 입력해주세요.")
-
 
 if __name__ == "__main__":
     main()
