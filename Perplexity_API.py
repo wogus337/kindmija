@@ -22,7 +22,7 @@ def get_perplexity_response(company_name):
     url = "https://api.perplexity.ai/chat/completions"
     query = f"새롭게 발행하는 {company_name} 회사채에 대한 투자를 고려하고 있는데 신용등급 전망과 재무 상황, 실적 전망을 요약해 주세요. 각종 자료에 대해서는 출처도 함께 명시해 주었으면 좋겠어요"
     payload = {
-        "model": "mixtral-8x7b-instruct",
+        "model": "sonar-reasoning-pro",
         "messages": [
             {
                 "role": "system",
