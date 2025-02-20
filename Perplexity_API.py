@@ -13,6 +13,7 @@ CREDIT_LIMIT = 5
 # API 호출에 따른 크레딧 소모량 (예시)
 CREDIT_PER_CALL = 0.02  # 예를 들어, 한 호출당 0.02 크레딧 소모
 
+
 def get_perplexity_response(company_name):
     global credit_used
     if credit_used >= CREDIT_LIMIT:
@@ -40,8 +41,22 @@ def get_perplexity_response(company_name):
     }
 
     response = requests.post(url, json=payload, headers=headers)
-    credit_used += CREDIT_PER_CALL  # 크레딧 사용량 증가
-    return response.json()['choices'][0]['message']['content']
+
+    # 응답 상태 코드 확인
+    if response.status_code != 200:
+        return f"API 호출 실패: {response.status_code}, 응답: {response.text}"
+
+    # 응답 JSON 확인
+    response_json = response.json()
+    st.write("API 응답:", response_json)  # 디버깅용 출력
+
+    # choices 키가 있는지 확인 후 반환
+    if "choices" in response_json and response_json["choices"]:
+        credit_used += CREDIT_PER_CALL  # 크레딧 사용량 증가
+        return response_json["choices"][0]["message"]["content"]
+    else:
+        return f"API 응답에 'choices' 키가 없습니다. 응답 내용: {response_json}"
+
 
 def main():
     st.title("기업 회사채 투자 정보 조회")
@@ -59,6 +74,7 @@ def main():
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
             st.warning("기업명을 입력해주세요.")
+
 
 if __name__ == "__main__":
     main()
