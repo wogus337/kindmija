@@ -54,27 +54,10 @@ def get_perplexity_response(company_name):
         content = response_json["choices"][0]["message"]["content"]
         content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
         citations = response_json.get("citations", [])
-
-        # citations 정보를 더 자세히 처리
-        detailed_citations = []
-        for citation in citations:
-            if isinstance(citations, list):
-                for citation in citations:
-                    if isinstance(citation, dict):
-                        url = citation.get("url", "")
-                        title = citation.get("title", "제목 없음")
-                    else:
-                        url = ""
-                        title = str(citation) if citation else "정보 없음"
-                    detailed_citations.append({"url": url, "title": title})
-            elif citations:
-                detailed_citations.append({"url": "", "title": str(citations)})
-            else:
-                detailed_citations.append({"url": "", "title": "정보 없음"})
-
-        return content.strip(), detailed_citations
+        return content.strip(), citations
     else:
         return f"API 응답에 'choices' 키가 없습니다. 응답 내용: {response_json}", []
+
 
 def main():
     st.title("투자정보 조회")
@@ -92,14 +75,10 @@ def main():
                         if citations:
                             st.subheader("출처")
                             for i, citation in enumerate(citations, 1):
-                                url = citation["url"]
-                                title = citation["title"]
-                                if url:
-                                    st.markdown(f"{i}. [{title}]({url})")
-                                else:
-                                    st.markdown(f"{i}. {title}")
+                                st.write(f"{i}. {citation}")
                     else:
                         st.write(result)
+                #st.info(f"현재 사용한 크레딧: ${credit_used:.2f} / ${CREDIT_LIMIT:.2f}")
             else:
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
