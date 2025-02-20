@@ -83,10 +83,11 @@ def main():
                         if citations:
                             st.subheader("출처")
                             for i, citation in enumerate(citations, 1):
-                                st.write(f"{i}. {citation}")
+                                url = citation["url"]
+                                title = citation["title"]
+                                st.markdown(f"{i}. [{title}]({url})")
                     else:
                         st.write(result)
-                #st.info(f"현재 사용한 크레딧: ${credit_used:.2f} / ${CREDIT_LIMIT:.2f}")
             else:
                 st.warning("크레딧 한도에 도달했습니다. 더 이상 API 호출을 할 수 없습니다.")
         else:
