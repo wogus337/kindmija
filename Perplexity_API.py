@@ -62,6 +62,9 @@ def get_perplexity_response(company_name):
 def main():
     st.title("투자정보 조회")
 
+    if "result" not in st.session_state:
+        st.session_state["result"] = None
+
     company_name = st.text_input("기업명을 입력하세요")
 
     if st.button("정보 조회"):
