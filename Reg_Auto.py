@@ -238,103 +238,95 @@ with center:
             st.info("엑셀 파일을 먼저 업로드해 주세요.")
 
     with tab3:
+        st.title("🔎 US Macro Similarity Analysis (Z-score 기반)")
 
-        st.title("🔎 횡단 유사국면 분석 (Z-score 기반)")
-
-        uploaded_file = st.file_uploader("📁 엑셀 파일 업로드", type=["xlsx"], key="z_file")
+        uploaded_file = st.file_uploader("📁 엑셀 파일 업로드", type=["xlsx"], key="zscore_file")
         if uploaded_file:
             df_raw = pd.read_excel(uploaded_file, sheet_name=0)
 
-            # DATE 컬럼 처리
-            date_col = next(c for c in df_raw.columns if str(c).lower().startswith("date"))
-            df_raw[date_col] = pd.to_datetime(df_raw[date_col])
-            df_raw = df_raw.sort_values(date_col).set_index(date_col)
+            # DATE 처리
+            date_col = next((col for col in df_raw.columns if str(col).lower().startswith("date")), None)
+            if date_col is None:
+                st.error("❌ 'Date' 컬럼을 찾을 수 없습니다.")
+            else:
+                df_raw[date_col] = pd.to_datetime(df_raw[date_col])
+                df_raw = df_raw.sort_values(date_col).set_index(date_col)
+                df = df_raw.select_dtypes(include=[np.number]).dropna(axis=1, how="all")
 
-            # 숫자형만 추출
-            df = df_raw.select_dtypes(include=[np.number]).dropna(axis=1, how="all")
+                st.markdown(f"🕒 데이터 범위: **{df.index.min().date()} ~ {df.index.max().date()}**")
 
-            # 기준일 선택
-            max_date = df.index.max()
-            selected_date = st.date_input("🔍 분석 기준일", value=max_date, min_value=df.index.min(), max_value=max_date)
+                # 사용자 입력 설정
+                cutoff = st.date_input("🔚 기준일자 (기준일까지 포함)", value=df.index.max().date())
+                window_years = st.slider("⏳ Rolling 기간 (년)", 5, 15, 10)
+                exclude_months = st.number_input("📅 최근 제외할 개월 수", value=12, min_value=0)
+                top_n = st.slider("🎯 거리기준 Top-N", 5, 30, 10)
+                excluded_vars = st.multiselect("❌ 분석에서 제외할 변수", df.columns.tolist())
+                run = st.button("🔍 유사도 분석 실행")
 
-            # 윈도우 설정
-            window_years = st.slider("⏳ Z-score 분석기간 (년)", 5, 15, 10)
-            window_months = window_years * 12
+                if run:
+                    # Step 1: 필터링 및 변수 설정
+                    df = df.loc[:cutoff]
+                    df = df.drop(columns=excluded_vars)
 
-            # 제외 변수
-            exclude_cols = st.multiselect("❌ 분석에서 제외할 변수", df.columns)
-            used_cols = [c for c in df.columns if c not in exclude_cols]
-            df = df[used_cols]
+                    window = window_years * 12
+                    roll_mean = df.rolling(window=window, min_periods=window).mean()
+                    roll_std = df.rolling(window=window, min_periods=window).std(ddof=0)
+                    z = (df - roll_mean) / roll_std
+                    z = z.dropna()
 
-            # Top-N 개수 설정
-            top_n = st.slider("🎯 유사 시점 개수 (Top N)", 5, 30, 10)
+                    latest = z.index.max()
+                    current_vec = z.loc[latest].to_numpy()
 
-            # 실행 버튼
-            if st.button("📌 유사도 분석 실행"):
-                roll_mean = df.rolling(window=window_months, min_periods=window_months).mean()
-                roll_std = df.rolling(window=window_months, min_periods=window_months).std(ddof=0)
-                z = (df - roll_mean) / roll_std
-                z = z.dropna()
-
-                # 기준 시점 벡터 추출
-                current_date = pd.Timestamp(selected_date)
-                if current_date not in z.index:
-                    st.warning("선택한 날짜가 Z-score 계산 결과에 없음 → 가장 가까운 이전 날짜로 자동 선택됩니다.")
-                    current_date = z.index[z.index < current_date][-1]
-
-                current_vec = z.loc[current_date].to_numpy()
-                hist_z = z[z.index < current_date - pd.DateOffset(months=12)]
-                hist_mat = hist_z.to_numpy()
-
-                # Mahalanobis 거리
-                try:
-                    cov_inv = np.linalg.pinv(np.cov(z.T, ddof=0))
+                    hist_z = z[z.index < (latest - pd.DateOffset(months=exclude_months))]
+                    hist_mat = hist_z.to_numpy()
 
 
-                    def mahalanobis_all(mat, vec, cov_inv):
+                    # Step 2: 거리 함수 정의
+                    def euclidean(mat, vec):
+                        return np.linalg.norm(mat - vec, axis=1)
+
+
+                    def mahalanobis(mat, vec, cov_inv):
                         diff = mat - vec
                         return np.sqrt(np.sum(diff @ cov_inv * diff, axis=1))
 
 
-                    maha_distances = mahalanobis_all(hist_mat, current_vec, cov_inv)
-                    series_maha = pd.Series(maha_distances, index=hist_z.index, name="Mahalanobis")
+                    cov_inv = np.linalg.pinv(np.cov(z.T, ddof=0))
 
-                    # Euclidean 거리
-                    eucl_distances = np.linalg.norm(hist_mat - current_vec, axis=1)
-                    series_eucl = pd.Series(eucl_distances, index=hist_z.index, name="Euclidean")
+                    dist_e = euclidean(hist_mat, current_vec)
+                    series_e = pd.Series(dist_e, index=hist_z.index, name="Euclidean")
+                    top_e = series_e.nsmallest(top_n)
 
-                    # Top-N 시점
-                    top_maha = series_maha.nsmallest(top_n)
-                    top_eucl = series_eucl.nsmallest(top_n)
+                    dist_m = mahalanobis(hist_mat, current_vec, cov_inv)
+                    series_m = pd.Series(dist_m, index=hist_z.index, name="Mahalanobis")
+                    top_m = series_m.nsmallest(top_n)
 
-                    # 공통 시점
-                    common_dates = sorted(set(top_maha.index) & set(top_eucl.index))
-                    heat_df = z.loc[common_dates + [current_date]]
-                    heat_df.index = heat_df.index.strftime("%Y-%m-%d")
+                    # Step 3: 교집합 추출
+                    common_dates = sorted(set(top_e.index) & set(top_m.index))
 
-                    # 히트맵
-                    st.markdown("### 🔥 Z-Score Heatmap – 공통 유사시점 vs 현재")
-                    import matplotlib.pyplot as plt
-                    import seaborn as sns
+                    if not common_dates:
+                        st.warning("⚠️ Euclidean과 Mahalanobis 기준 공통 Top-N 날짜가 없습니다.")
+                    else:
+                        st.success(f"✅ 공통 Top-N 날짜 수: {len(common_dates)}")
 
-                    fig, ax = plt.subplots(figsize=(14, 6))
-                    sns.heatmap(
-                        heat_df.T, annot=True, fmt=".2f",
-                        cmap="RdBu_r", center=0, linewidths=.5,
-                        cbar_kws={"label": "Z-score"}, ax=ax
-                    )
-                    ax.set_title("Z-score Heatmap – Similar Dates vs Current", fontsize=14)
-                    st.pyplot(fig)
+                        heat_dates = common_dates + [latest]
+                        heat_df = z.loc[heat_dates]
+                        heat_df.index = heat_df.index.strftime("%Y-%m-%d")
 
-                    # 결과 테이블
-                    st.markdown("### 📋 공통 유사 시점 리스트")
-                    result_table = pd.DataFrame({
-                        "Mahalanobis": top_maha.loc[common_dates].round(4),
-                        "Euclidean": top_eucl.loc[common_dates].round(4)
-                    }).reset_index().rename(columns={"index": "Date"})
-                    st.dataframe(result_table)
+                        st.markdown("### 🔥 Z-score Heatmap – 공통 유사시점 vs 현재")
+                        fig, ax = plt.subplots(figsize=(14, 6))
+                        sns.heatmap(
+                            heat_df.T, annot=True, fmt=".2f",
+                            cmap="RdBu_r", center=0, linewidths=.5,
+                            cbar_kws={"label": "Z-score"}, ax=ax
+                        )
+                        ax.set_title("Z-score Heatmap – Similar Dates vs Current", fontsize=14)
+                        st.pyplot(fig)
 
-                except Exception as e:
-                    st.error(f"Mahalanobis 거리 계산 중 오류 발생: {e}")
-
-
+                        # 결과 테이블
+                        st.markdown("### 📋 공통 Top-N 날짜별 거리")
+                        result_df = pd.DataFrame({
+                            "Mahalanobis": series_m.loc[common_dates].round(4),
+                            "Euclidean": series_e.loc[common_dates].round(4)
+                        }).reset_index().rename(columns={"index": "Date"})
+                        st.dataframe(result_df)
